@@ -1,0 +1,133 @@
+package game;
+import java.awt.*;
+import java.awt.event.KeyEvent;
+
+import javax.swing.ImageIcon;
+public class Asteroid {
+
+	public static void main(String[] args) {
+		// TODO Auto-generated method stub
+		new Asteroid().run();
+	}
+	private static final DisplayMode MODES[] = {
+        new DisplayMode(800, 600, 32, 0),
+        new DisplayMode(800, 600, 24, 0),
+        new DisplayMode(800, 600, 16, 0)
+    };
+	private boolean running;
+	protected GameAction forward;
+    protected GameAction exit;
+    protected GameAction turnLeft;
+    protected GameAction turnRight;
+    protected GameAction pause;
+    protected InputManager inputManager;
+    private PlayerShip playership;
+    private boolean paused;
+	protected ScreenManager screen;
+	private Image bgImage;
+	public void stop(){
+		running = false;
+	}
+	public void run() {
+        try {
+            initialize();
+            gameLoop();
+        }
+        finally {
+            screen.restoreScreen();
+        }
+    }
+	public void initialize(){
+		screen = new ScreenManager();
+		DisplayMode displayMode = screen.findFirstCompatibleMode(MODES);
+		screen.setFullScreen(displayMode);
+		Window window = screen.getFullScreenWindow();
+		window.setFont(new Font("Dialog", Font.PLAIN,24));
+		window.setBackground(Color.BLACK);
+		inputManager = new InputManager(window);
+		createGameActions();
+		createship();
+		running=true;
+	}
+	public Image loadImage(String fileName){
+		return new ImageIcon(fileName).getImage();
+	}
+	public void gameLoop(){
+		long startTime = System.currentTimeMillis();
+		long currTime = startTime;
+		while(running){
+			long elapsedTime =System.currentTimeMillis() - currTime;
+			currTime += elapsedTime;
+			update(elapsedTime);
+			Graphics2D g=screen.getGraphics();
+			draw(g);
+			g.dispose();
+			screen.update();
+			try {
+                Thread.sleep(20);
+            }
+            catch (InterruptedException ex) { }
+		}
+	}
+	public boolean isPaused() {
+        return paused;
+    }
+	public void update(long elapsedTime) {
+        // check input that can happen whether paused or not
+        checkSystemInput();
+        if (!isPaused()) {
+            // check game input
+            checkGameInput();
+            // update ship
+            playership.update(elapsedTime);
+        }
+    }
+	public void checkSystemInput() {
+        //if (pause.isPressed()) {
+          //  setPaused(!isPaused());
+        //}
+        if (exit.isPressed()) {
+            stop();
+        }
+    }
+	public void checkGameInput(){
+		float speed = 0;
+		if(forward.isPressed()){
+			speed=-playership.SPEED;
+		}
+		if(turnLeft.isPressed()){
+			
+		}
+		playership.setVelocityY(speed);
+	}
+	public void draw(Graphics2D g){
+		int x[3] = {Math.round(playership.getX()),Math.round(playership.getX()+5),Math.round(playership.getX()+10)};
+		int y[3] = {Math.round(playership.getY()-10),Math.round(playership.getX()),Math.round(playership.getX()+10)-10};
+		g.drawImage(bgImage, 0, 0, null);
+		//g.drawImage(playership.GetImage(),Math.round(playership.getX()),Math.round(playership.getY()),null);
+		g.drawPolygon(x, y, 3);
+	}
+	 public void createGameActions() {
+		 forward = new GameAction("forward");
+		 exit = new GameAction("exit", GameAction.DETECT_INITAL_PRESS_ONLY);
+		 turnLeft = new GameAction("turnLeft");
+		 inputManager.mapToKey(forward, KeyEvent.VK_UP);
+		 inputManager.mapToKey(exit, KeyEvent.VK_ESCAPE);
+		 inputManager.mapToKey(turnLeft, KeyEvent.VK_LEFT);
+	 }
+	 private void createship(){
+		 Image shipimage = loadImage("../images/feichuan.png");
+		 bgImage = loadImage("../images/bg.png");
+		 Animation anim = new Animation();
+		 anim.addFrame(shipimage,200);
+		 playership = new PlayerShip(anim);
+		 playership.setX(300f);
+		 playership.setY(250f);
+	 }
+	 public void setPaused(boolean p) {
+	        if (paused != p) {
+	            this.paused = p;
+	            inputManager.resetAllGameActions();
+	        }
+	    }
+}

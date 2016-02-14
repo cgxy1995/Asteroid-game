@@ -1,0 +1,11 @@
+package game;
+
+public class PlayerShip extends Ship {
+	private float angle;
+	public PlayerShip(Animation anim) {
+		super(anim);
+		angle=0;
+		// TODO Auto-generated constructor stub
+	}
+
+}

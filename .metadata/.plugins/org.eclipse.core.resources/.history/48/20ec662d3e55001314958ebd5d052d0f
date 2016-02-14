@@ -1,0 +1,10 @@
+package game;
+
+public class PlayerShip extends Ship {
+
+	public PlayerShip(Animation anim) {
+		super(anim);
+		// TODO Auto-generated constructor stub
+	}
+
+}

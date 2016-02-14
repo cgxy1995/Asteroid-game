@@ -1,0 +1,1090 @@
+package game;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
+import java.io.InputStream;
+import java.util.*;
+import java.io.*;
+
+import javax.sound.midi.Sequence;
+import javax.sound.sampled.*;
+import javax.swing.ImageIcon;
+import javax.swing.JButton;
+import javax.swing.JComponent;
+import javax.swing.JFrame;
+import javax.swing.JPanel;
+public class Asteroid implements ActionListener {
+
+	public static void main(String[] args) {
+		// TODO Auto-generated method stub
+		new Asteroid().run();
+		System.exit(0);
+	}
+	private static final DisplayMode MODES[] = {
+        new DisplayMode(800, 600, 32, 0)
+    };
+	private static final AudioFormat PLAYBACK_FORMAT =
+	        new AudioFormat(44100, 16, 1, true, false);
+	
+	private static final String EXIT = "Exit";
+    private static final String PAUSE = "Pause";
+    private static final String PLAY_MUSIC = "Play Music";
+    private static final String MUSIC_DRUMS = "Toggle Drums";
+    private static final String PLAY_SOUND = "Play Sound";
+    private static final String PLAY_ECHO_SOUND = "Play Echoed Sound";
+    private static final String PLAY_LOOPING_SOUND =
+        "Play Looping Sound";
+	private boolean running;
+	//game actions
+	protected GameAction forward;
+    protected GameAction exit;
+    protected GameAction turnLeft;
+    protected GameAction turnRight;
+    protected GameAction pause;
+    protected GameAction fireBullet;
+    protected InputManager inputManager;
+    protected GameAction forward2;
+    protected GameAction turnLeft2;
+    protected GameAction turnRight2;
+    protected GameAction fireBullet2;
+    //buttons and options
+    private JButton playButton;
+    private JPanel playButtonSpace;
+    private JButton singleButton;
+    private JPanel gameStart;
+    //game sounds
+    //private SoundManager soundManager;
+    //private MidiPlayer midiPlayer;
+    //private Sound bulletSound;
+    public SimpleSoundPlayer bulletSound;
+    public SimpleSoundPlayer explosionSound;
+    public InputStream bulletStream;
+    public InputStream explosionStream;
+    public SimpleSoundPlayer flySound;
+    public InputStream flyStream;
+    
+    private long lastFlyTime;
+    private long nowFlyTime;
+    //game variables
+    private boolean inWelcome;
+    private int level;
+    private PlayerShip playership;
+    private PlayerShip playership2;
+    private boolean twoPlayerMode;
+    private boolean paused;
+	protected ScreenManager screen;
+	private Image bgImage;
+	private int rocknum;
+	private Rock[] rocks;
+	private int bulletnum;
+	private int rocksleft;
+	private Bullet[] bullets; 
+	private long LastBulletTime;
+	private long LastBulletTime2;
+	private long ThisBulletTime;
+	private long ThisBulletTime2;
+	private int bulletsinRow;
+	private int bulletsinRow2;
+	private int score;
+	private int score2;
+	private Alienship[] aliens;
+	private int aliennum;
+	private Gravobject gravObject;
+	private float gravAngle;
+	private boolean gravVisible;
+	private Rogueship[] rogues;
+	private int roguenum;
+	private int enemySpawnFlag;
+	private Random enemySpawnRan = new Random();
+	private long enemySpawnControlTime;
+	private long enemySpawnStackTime;
+	private int levelTransision;
+	public long levelpreTime=System.currentTimeMillis();
+	public long levelcurrTime=System.currentTimeMillis();
+	private Font scorefont= new Font("Arial",Font.BOLD, 20);
+	private Font levelfont= new Font("Arial",Font.BOLD, 100);
+	public void stop(){
+		running = false;
+	}
+	public void run() {
+        try {
+            initialize();
+            initSounds();
+            initButtons();
+            gameLoop();
+        }
+        finally {
+            screen.restoreScreen();
+        }
+    }
+	public void initialize(){
+		screen = new ScreenManager();
+		DisplayMode displayMode = screen.findFirstCompatibleMode(MODES);
+		screen.setFullScreen(displayMode);
+		Window window = screen.getFullScreenWindow();
+		window.setFont(new Font("Dialog", Font.PLAIN,24));
+		window.setBackground(Color.BLACK);
+		inputManager = new InputManager(window);
+		twoPlayerMode=false;
+		level=1;
+		createGameActions();
+		createship();
+		rocknum=3;
+		rocksleft=3;
+		rocks = new Rock[500];
+		createrocks();
+		bullets = new Bullet[3000];
+		aliens = new Alienship[100];
+		aliennum=0;
+		roguenum=0;
+		rogues = new Rogueship[100];
+		bulletnum=0;
+		ThisBulletTime=System.currentTimeMillis();
+		ThisBulletTime2=System.currentTimeMillis();
+		LastBulletTime=System.currentTimeMillis();
+		LastBulletTime2=System.currentTimeMillis();
+		bulletsinRow=0;
+		score=0;		
+		gravAngle=0;
+		gravObject = new Gravobject();
+		gravVisible=false;
+		enemySpawnFlag = 0;
+		enemySpawnControlTime = 0;
+		enemySpawnStackTime = 0;
+		levelTransision=0;
+		running=true;
+	}
+	public void uplevel(int level){
+		level=2;
+		createship();
+		rocknum=6;
+		rocksleft=6;
+		rocks = new Rock[500];
+		createrocks();
+		bullets = new Bullet[3000];
+		aliens = new Alienship[100];
+		aliennum=0;
+		roguenum=0;
+		rogues = new Rogueship[100];
+		bulletnum=0;
+		ThisBulletTime=System.currentTimeMillis();
+		ThisBulletTime2=System.currentTimeMillis();
+		LastBulletTime=System.currentTimeMillis();
+		LastBulletTime2=System.currentTimeMillis();
+		bulletsinRow=0;	
+		enemySpawnFlag = 0;
+		enemySpawnControlTime = 0;
+		enemySpawnStackTime = 0;
+		levelTransision=0;
+		running=true;
+	}
+	public void initSounds() {
+		//midiPlayer = new MidiPlayer();
+        //soundManager = new SoundManager(PLAYBACK_FORMAT);
+        bulletSound = new SimpleSoundPlayer("../sounds/bullet.wav");
+        bulletStream = new ByteArrayInputStream(bulletSound.getSamples());
+        explosionSound = new SimpleSoundPlayer("../sounds/explosion.wav");
+        explosionStream = new ByteArrayInputStream(explosionSound.getSamples());
+        flySound = new SimpleSoundPlayer("../sounds/fly.wav");
+        flyStream = new ByteArrayInputStream(flySound.getSamples());
+        lastFlyTime=0;
+        nowFlyTime=0;
+        //bulletSound = soundManager.getSound("../sounds/fly-bzz.wav");
+        
+	}
+	public void initButtons(){
+		NullRepaintManager.install();
+
+        // create an addtional GameAction for "config"
+       //configAction = new GameAction("config");
+		playButton = createButton("play", "Continue");
+		singleButton = createButton("single","Start Game with single player");
+		playButton.setVisible(false);
+		playButtonSpace = new JPanel();
+        playButtonSpace.setOpaque(false);
+        playButtonSpace.add(playButton);  
+        //playButtonSpace.add(singleButton);
+        JFrame frame = screen.getFullScreenWindow();
+        Container contentPane = frame.getContentPane();
+
+        // make sure the content pane is transparent
+        if (contentPane instanceof JComponent) {
+            ((JComponent)contentPane).setOpaque(false);
+        }
+        contentPane.setLayout(new FlowLayout(FlowLayout.LEFT));
+        
+
+        contentPane.add(playButtonSpace);
+        contentPane.add(singleButton);
+        /*gameStart  = new JPanel();
+        gameStart.setOpaque(false);
+        gameStart.add(singleButton);*/
+        //Container contentPane2 = frame.getContentPane();
+        //if (contentPane2 instanceof JComponent) {
+        //    ((JComponent)contentPane2).setOpaque(false);
+        //}
+        //contentPane2.setLayout(new FlowLayout(FlowLayout.LEADING));
+        //contentPane.add(gameStart);
+        frame.validate();
+	}
+	public Image loadImage(String fileName){
+		return new ImageIcon(fileName).getImage();
+	}
+	public void gameLoop(){
+		long startTime = System.currentTimeMillis();
+		long currTime = startTime;
+		while(running){
+			long elapsedTime =System.currentTimeMillis() - currTime;
+			currTime += elapsedTime;
+			enemySpawn(elapsedTime);
+			enemyFire();
+			update(elapsedTime);
+			Graphics2D g=screen.getGraphics();
+			draw(g);
+			delectCollision();
+			delectLevelUp(g);
+			g.dispose();
+			screen.update();
+			
+		}
+	}
+	public boolean isPaused() {
+        return paused;
+    }
+	public void update(long elapsedTime) {
+        // check input that can happen whether paused or not
+        checkSystemInput();
+        if (!isPaused()) {
+            // check game input
+            checkGameInput(elapsedTime);
+            // update ship
+            playership.update(elapsedTime);
+            if(twoPlayerMode)
+            	playership2.update(elapsedTime);
+            for(int i=0;i<rocknum;i++){
+            	if(rocks[i]!=null){
+            		rocks[i].update(elapsedTime);
+            	}
+            }
+            for(int i=0;i<bulletnum;i++){
+            	if(bullets[i]!=null){
+            		bullets[i].update(elapsedTime);
+            		if(bullets[i].ifOut()){
+            			bullets[i]=null;
+            		}
+            	}
+            }
+            for(int i=0;i<aliennum;i++){
+            	if(aliens[i]!=null){
+            		aliens[i].update(elapsedTime);
+            	}
+            }
+            for(int i=0;i<roguenum;i++){
+            	if(rogues[i]!=null){
+            		rogues[i].update(elapsedTime);
+            	}
+            }
+        }
+    }
+	public void checkSystemInput() {
+        if (pause.isPressed()) {
+            setPaused(!isPaused());
+        }
+        if (exit.isPressed()) {
+            stop();
+        }
+    }
+	public void checkGameInput(long elapsedTime){
+		float turnspeed=(float) (Math.PI/50);
+		if(forward.isPressed()){
+			if(-playership.speed<playership.SPEED)
+				playership.speed=playership.speed-playership.ACCL;
+			flysound(elapsedTime);
+		}
+		else
+			if(playership.speed<0)
+				playership.speed+=playership.ACCL;
+		
+		if(turnLeft.isPressed()){
+			if(playership.getAngle()<2*Math.PI){
+				playership.setAngle(playership.getAngle()+turnspeed);
+			}
+			else{
+				playership.setAngle((float)(playership.getAngle()-2*Math.PI));
+			}
+		}
+		if(turnRight.isPressed()){
+				playership.setAngle(playership.getAngle()-turnspeed);
+				if(playership.getAngle()<0)
+					playership.setAngle((float) (playership.getAngle()+2*Math.PI));
+		}
+		if(fireBullet.isPressed()){
+			ThisBulletTime=System.currentTimeMillis();
+			if(ThisBulletTime-LastBulletTime<200 && bulletsinRow<4){
+				bulletsinRow++;
+			}
+			else if(ThisBulletTime-LastBulletTime>=200)
+				bulletsinRow=0;
+			if(bulletsinRow<4)
+				fire(0);
+		}
+		if(twoPlayerMode){
+		if(forward2.isPressed()){
+			if(-playership2.speed<playership2.SPEED)
+				playership2.speed=playership2.speed-playership2.ACCL;
+		}
+		else
+			if(playership2.speed<0)
+				playership2.speed+=playership2.ACCL;
+		if(turnLeft2.isPressed()){
+			if(playership2.getAngle()<2*Math.PI){
+				playership2.setAngle(playership2.getAngle()+turnspeed);
+			}
+			else{
+				playership2.setAngle((float)(playership2.getAngle()-2*Math.PI));
+			}
+		}
+		if(turnRight2.isPressed()){
+			playership2.setAngle(playership2.getAngle()-turnspeed);
+			if(playership2.getAngle()<0)
+				playership2.setAngle((float) (playership2.getAngle()+2*Math.PI));
+	}
+		if(fireBullet2.isPressed()){
+			ThisBulletTime2=System.currentTimeMillis();
+			if(ThisBulletTime2-LastBulletTime2<200 && bulletsinRow2<4){
+				bulletsinRow2++;
+			}
+			else if(ThisBulletTime2-LastBulletTime2>=200)
+				bulletsinRow2=0;
+			if(bulletsinRow2<4)
+				fire2(2);
+		}
+		}//two player mode
+		//System.out.println(playership.getAngle()+" "+Math.sin(playership.getAngle()));
+        if(playership.speed>0)
+        	playership.speed=0;
+        
+        float gravspeedx;
+        float gravspeedy;
+        
+        if(gravObject.ifOut((int)(playership.x), (int)(playership.y))){
+        	gravspeedx=(float) (Math.sin(gravObject.calcAngle(playership.x, playership.y))*Gravobject.GRAVITY);
+        	gravspeedy=(float) (Math.cos(gravObject.calcAngle(playership.x, playership.y))*Gravobject.GRAVITY);
+        }
+        else{
+        	gravspeedx=0;
+        	gravspeedy=0;
+        }
+        
+		playership.setVelocityX(playership.speed*(float)(Math.sin(playership.getAngle()))+gravspeedx);
+		playership.setVelocityY(playership.speed*(float)(Math.cos(playership.getAngle()))+gravspeedy);
+		if(twoPlayerMode){
+        	if(playership2.speed>0)
+        		playership2.speed=0;
+        	float gravspeedx2;
+            float gravspeedy2;
+            if(gravObject.ifOut((int)(playership2.x), (int)(playership2.y))){
+            	gravspeedx2=(float) (Math.sin(gravObject.calcAngle(playership2.x, playership2.y))*Gravobject.GRAVITY);
+            	gravspeedy2=(float) (Math.cos(gravObject.calcAngle(playership2.x, playership2.y))*Gravobject.GRAVITY);
+            }
+            else{
+            	gravspeedx2=0;
+            	gravspeedy2=0;
+            }
+            playership2.setVelocityX(playership2.speed*(float)(Math.sin(playership2.getAngle()))+gravspeedx2);
+    		playership2.setVelocityY(playership2.speed*(float)(Math.cos(playership2.getAngle()))+gravspeedy2);
+        }
+		
+	}
+	public void draw(Graphics2D g){
+		String fenshu = "Score";
+		String fenshu2 = "Score";
+		g.setColor(Color.WHITE);
+		g.drawImage(bgImage, 0, 0, null);
+		/*if(inWelcome){
+			JFrame frame = screen.getFullScreenWindow();
+			frame.getLayeredPane().paintComponents(g);
+		}*/
+		/*player one ship*/
+		//int verx=Math.round(playership.getX()+playership.width/2-(float)Math.sin(playership.getAngle())*playership.height/2);
+		//int very=Math.round(playership.getY()+(playership.height/2-(float)Math.cos(playership.getAngle())*playership.height/2));
+		int verx=Math.round(playership.getX()-(float)Math.sin(playership.getAngle())*playership.height/2);
+		int very=Math.round(playership.getY()-(float)Math.cos(playership.getAngle())*playership.height/2);
+		int bx=verx+Math.round((float)Math.sin(playership.getAngle())*20);
+		int by=very+Math.round((float)Math.cos(playership.getAngle())*20);
+		int lx=verx-Math.round(playership.adj*(float)Math.sin(playership.theta1-playership.getAngle()));
+		int rx=verx+Math.round(playership.adj*(float)Math.sin(playership.theta1+playership.getAngle()));
+		int ly=very+Math.round(playership.adj*(float)Math.cos(playership.theta1-playership.getAngle()));
+		int ry=very+Math.round(playership.adj*(float)Math.cos(playership.theta1+playership.getAngle()));
+		playership.setPoints(lx, ly, verx, very, rx, ry);
+		int x[] = {lx,
+				verx,
+				rx,bx};
+		int y[] = {ly,
+				very,
+				ry,by};
+		fenshu=fenshu+": "+score;
+		
+		//g.drawImage(playership.GetImage(),Math.round(playership.getX()),Math.round(playership.getY()),null);
+		g.setFont(scorefont);
+		g.drawString(fenshu, 50, 30);
+		g.drawPolygon(x, y, 4);//playership
+		/*player 2 ship*/
+		if(twoPlayerMode){
+			int verx2=Math.round(playership2.getX()-(float)Math.sin(playership2.getAngle())*playership2.height/2);
+			int very2=Math.round(playership2.getY()-(float)Math.cos(playership2.getAngle())*playership2.height/2);
+			int bx2=verx2+Math.round((float)Math.sin(playership2.getAngle())*20);
+			int by2=very2+Math.round((float)Math.cos(playership2.getAngle())*20);
+			int lx2=verx2-Math.round(playership2.adj*(float)Math.sin(playership2.theta1-playership2.getAngle()));
+			int rx2=verx2+Math.round(playership2.adj*(float)Math.sin(playership2.theta1+playership2.getAngle()));
+			int ly2=very2+Math.round(playership2.adj*(float)Math.cos(playership2.theta1-playership2.getAngle()));
+			int ry2=very2+Math.round(playership2.adj*(float)Math.cos(playership2.theta1+playership2.getAngle()));
+			playership2.setPoints(lx2, ly2, verx2, very2, rx2, ry2);
+			int x2[] = {lx2,
+					verx2,
+					rx2,bx2};
+			int y2[] = {ly2,
+					very2,
+					ry2,by2};
+			fenshu2=fenshu2+": "+score2;
+			g.drawString(fenshu2, 600, 30);
+			g.drawPolygon(x2, y2, 4);//playership 2
+		}
+		for(int i=0;i<rocknum;i++){
+			if(rocks[i]!=null){
+				g.drawPolygon(rocks[i].createPolygon());
+			}
+		}
+		//draw bullets
+		for(int i=0;i<bulletnum;i++){
+			if(bullets[i]!=null){
+				g.drawOval((int)bullets[i].getX(), (int)bullets[i].getY(), Bullet.RADIUS, Bullet.RADIUS);
+			}		
+		}
+		//draw alienship
+		for(int i=0;i<aliennum;i++){
+        	if(aliens[i]!=null){
+        		Polygon[] alienship=aliens[i].createPolygon();
+        		g.drawPolygon(alienship[0]);
+        		g.drawPolygon(alienship[1]);
+        		g.drawPolygon(alienship[2]);
+        	}
+        }
+		if(levelTransision==1){
+			g.drawString("Level2", 325, 275);
+			g.drawString("Press ECS to continue", 300, 300);
+		}
+		g.setColor(Color.YELLOW);
+		for(int i=0;i<roguenum;i++){
+			if(rogues[i]!=null){
+				g.drawPolygon(rogues[i].createPolygon());
+				g.drawOval((int)(rogues[i].x-20),(int)(rogues[i].y-7),40,14);
+			}
+		}
+		if(gravVisible)
+			g.drawOval(400, 300, Gravobject.RADIUS, Gravobject.RADIUS);
+		if(paused){
+			JFrame frame = screen.getFullScreenWindow();
+			frame.getLayeredPane().paintComponents(g);
+		}
+	}
+	 public void createGameActions() {
+		 forward = new GameAction("forward");
+		 exit = new GameAction("exit", GameAction.DETECT_INITAL_PRESS_ONLY);
+		 turnLeft = new GameAction("turnLeft");
+		 turnRight = new GameAction("turnRight");
+		 fireBullet = new GameAction("fireBullet",GameAction.DETECT_INITAL_PRESS_ONLY);
+		 pause = new GameAction("pause", GameAction.DETECT_INITAL_PRESS_ONLY);
+		 forward2 = new GameAction("forward2");
+		 turnLeft2 = new GameAction("turnLeft2");
+		 turnRight2 = new GameAction("turnRight2");
+		 fireBullet2 = new GameAction("fireBullet2",GameAction.DETECT_INITAL_PRESS_ONLY);
+		 inputManager.mapToKey(forward, KeyEvent.VK_UP);
+		 inputManager.mapToKey(exit, KeyEvent.VK_Q);
+		 inputManager.mapToKey(turnLeft, KeyEvent.VK_LEFT);
+		 inputManager.mapToKey(turnRight, KeyEvent.VK_RIGHT);
+		 inputManager.mapToKey(fireBullet, KeyEvent.VK_QUOTE);
+		 inputManager.mapToKey(pause, KeyEvent.VK_ESCAPE);
+		 inputManager.mapToKey(forward2, KeyEvent.VK_W);
+		 inputManager.mapToKey(turnLeft2, KeyEvent.VK_A);
+		 inputManager.mapToKey(turnRight2, KeyEvent.VK_D);
+		 inputManager.mapToKey(fireBullet2, KeyEvent.VK_SPACE);
+	 }
+	 private void createship(){
+		 bgImage = loadImage("../images/bg.png");
+		 playership = new PlayerShip();
+		 playership.setX(300f);
+		 playership.setY(250f);
+		 if(twoPlayerMode){
+		 playership2 = new PlayerShip();
+		 playership2.setX(500f);
+		 playership2.setY(250f);
+		 }
+	 }
+	 @SuppressWarnings("deprecation")
+	public void setPaused(boolean p) {
+	        if (paused != p) {
+	            this.paused = p;
+	            inputManager.resetAllGameActions();
+	        }
+	        levelTransision=0;
+	        if(paused==false)
+	        	playButton.setVisible(false);
+	        else
+	        	playButton.setVisible(true);
+	 }
+	 private void createrocks(){
+		 int i;
+		 Random generator = new Random();
+		 int pos;
+		 int startx;
+		 int starty;
+		 float angle;
+		 int shape;
+		 for (i=0;i<rocknum;i++){
+			 pos=generator.nextInt(2);
+			 rocks[i]=new Rock();
+			 shape=generator.nextInt(3)+1;
+			 rocks[i].setShape(shape);			 
+			 rocks[i].createPolygon();
+			 if(pos==0){
+				 startx=generator.nextInt(800);
+				 rocks[i].setCenter(startx, -rocks[i].boundbox.height/2);
+			 }
+			 else{
+				 starty=generator.nextInt(600);
+				 rocks[i].setCenter(-rocks[i].boundbox.width/2, starty);
+			 }
+			 rocks[i].setSpeed(.09f);
+			 angle=(float) (generator.nextFloat()*2*Math.PI);
+			 rocks[i].setVelocityX(-(float) (Math.sin(angle)*rocks[i].speed));
+			 rocks[i].setVelocityY(-(float) (Math.cos(angle)*rocks[i].speed));
+		 }
+	 }
+	 private void delectCollision(){
+		 Random generator = new Random();
+		 int shape;
+		 float angle;
+		 //player ship collision with rocks
+		 for(int i=0;i<rocknum;i++){
+			 if(rocks[i]!=null && rocks[i].rock.contains(playership.p2x, playership.p2y) && rocks[i].size==3){
+				 for(int k=0;k<2;k++){
+			 	 rocks[rocknum] = new Rock();
+			 	 System.out.println(rocknum);
+			 	 rocks[rocknum].setSize(2);
+			 	 shape=generator.nextInt(3)+1;
+				 rocks[rocknum].setShape(shape);
+				 rocks[rocknum].createPolygon();
+				 if(k==0)
+					 rocks[rocknum].setCenter((int)rocks[i].x-2, (int)rocks[i].y-2);
+				 else
+					 rocks[rocknum].setCenter((int)rocks[i].x+2, (int)rocks[i].y+2);
+				 rocks[rocknum].setSpeed(.13f);
+				 angle=(float) (generator.nextFloat()*2*Math.PI);
+				 rocks[rocknum].setVelocityX(-(float) (Math.sin(angle)*rocks[rocknum].speed));
+				 rocks[rocknum].setVelocityY(-(float) (Math.cos(angle)*rocks[rocknum].speed));
+				 rocknum++;
+				 }
+				 rocksleft++;
+				 calcScore(0);
+				 rocks[i]=null;
+				 new Thread() {
+			            public void run() {
+			            	explosionStream = new ByteArrayInputStream(explosionSound.getSamples());
+			            	explosionSound.play(explosionStream);
+			            }
+			        }.start();
+			 }
+			 if(rocks[i]!=null && rocks[i].rock.contains(playership.p2x, playership.p2y) && rocks[i].size==2){
+				 for(int k=0;k<2;k++){
+			 	 rocks[rocknum] = new Rock();
+			 	 System.out.println(rocknum);
+			 	 rocks[rocknum].setSize(1);
+			 	 shape=generator.nextInt(3)+1;
+				 rocks[rocknum].setShape(shape);
+				 rocks[rocknum].createPolygon();
+				 if(k==0)
+					 rocks[rocknum].setCenter((int)rocks[i].x-1, (int)rocks[i].y-1);
+				 else
+					 rocks[rocknum].setCenter((int)rocks[i].x+1, (int)rocks[i].y+1);
+				 rocks[rocknum].setSpeed(.2f);
+				 angle=(float) (generator.nextFloat()*2*Math.PI);
+				 rocks[rocknum].setVelocityX(-(float) (Math.sin(angle)*rocks[rocknum].speed));
+				 rocks[rocknum].setVelocityY(-(float) (Math.cos(angle)*rocks[rocknum].speed));
+				 rocknum++;
+				 }	
+				 rocksleft++;
+				 rocks[i]=null;
+				 calcScore(0);
+				 new Thread() {
+			            public void run() {
+			            	explosionStream = new ByteArrayInputStream(explosionSound.getSamples());
+			            	explosionSound.play(explosionStream);
+			            }
+			        }.start();
+			 }
+			 if(rocks[i]!=null && rocks[i].rock.contains(playership.p2x, playership.p2y) && rocks[i].size==1){
+				 rocks[i]=null;
+				 rocksleft--;
+				 calcScore(0);
+				 new Thread() {
+			            public void run() {
+			            	explosionStream = new ByteArrayInputStream(explosionSound.getSamples());
+			            	explosionSound.play(explosionStream);
+			            }
+			        }.start();
+			 }
+			 //player2 ship
+		if(twoPlayerMode){
+			 if(rocks[i]!=null && rocks[i].rock.contains(playership2.p2x, playership2.p2y) && rocks[i].size==3){
+				 for(int k=0;k<2;k++){
+			 	 rocks[rocknum] = new Rock();
+			 	 System.out.println(rocknum);
+			 	 rocks[rocknum].setSize(2);
+			 	 shape=generator.nextInt(3)+1;
+				 rocks[rocknum].setShape(shape);
+				 rocks[rocknum].createPolygon();
+				 if(k==0)
+					 rocks[rocknum].setCenter((int)rocks[i].x-2, (int)rocks[i].y-2);
+				 else
+					 rocks[rocknum].setCenter((int)rocks[i].x+2, (int)rocks[i].y+2);
+				 rocks[rocknum].setSpeed(.13f);
+				 angle=(float) (generator.nextFloat()*2*Math.PI);
+				 rocks[rocknum].setVelocityX(-(float) (Math.sin(angle)*rocks[rocknum].speed));
+				 rocks[rocknum].setVelocityY(-(float) (Math.cos(angle)*rocks[rocknum].speed));
+				 rocknum++;
+				 }
+				 rocksleft++;
+				 calcScore(4);
+				 rocks[i]=null;
+				 new Thread() {
+			            public void run() {
+			            	explosionStream = new ByteArrayInputStream(explosionSound.getSamples());
+			            	explosionSound.play(explosionStream);
+			            }
+			        }.start();
+			 }
+			 if(rocks[i]!=null && rocks[i].rock.contains(playership2.p2x, playership2.p2y) && rocks[i].size==2){
+				 for(int k=0;k<2;k++){
+			 	 rocks[rocknum] = new Rock();
+			 	 System.out.println(rocknum);
+			 	 rocks[rocknum].setSize(1);
+			 	 shape=generator.nextInt(3)+1;
+				 rocks[rocknum].setShape(shape);
+				 rocks[rocknum].createPolygon();
+				 if(k==0)
+					 rocks[rocknum].setCenter((int)rocks[i].x-1, (int)rocks[i].y-1);
+				 else
+					 rocks[rocknum].setCenter((int)rocks[i].x+1, (int)rocks[i].y+1);
+				 rocks[rocknum].setSpeed(.2f);
+				 angle=(float) (generator.nextFloat()*2*Math.PI);
+				 rocks[rocknum].setVelocityX(-(float) (Math.sin(angle)*rocks[rocknum].speed));
+				 rocks[rocknum].setVelocityY(-(float) (Math.cos(angle)*rocks[rocknum].speed));
+				 rocknum++;
+				 }	
+				 rocksleft++;
+				 rocks[i]=null;
+				 calcScore(4);
+				 new Thread() {
+			            public void run() {
+			            	explosionStream = new ByteArrayInputStream(explosionSound.getSamples());
+			            	explosionSound.play(explosionStream);
+			            }
+			        }.start();
+			 }
+			 if(rocks[i]!=null && rocks[i].rock.contains(playership2.p2x, playership2.p2y) && rocks[i].size==1){
+				 rocks[i]=null;
+				 rocksleft--;
+				 calcScore(4);
+				 new Thread() {
+			            public void run() {
+			            	explosionStream = new ByteArrayInputStream(explosionSound.getSamples());
+			            	explosionSound.play(explosionStream);
+			            }
+			        }.start();
+			 }
+		}
+		 }
+		 //aliens with rocks
+		 for(int i=0;i<rocknum;i++){
+			 for(int j=0;j<aliennum;j++){
+			 if(rocks[i]!=null && aliens[i]!=null &&rocks[i].rock.intersects(aliens[j].x-15, aliens[j].y-12, 30, 24) && rocks[i].size==3){
+				 for(int k=0;k<2;k++){
+			 	 rocks[rocknum] = new Rock();
+			 	 rocks[rocknum].setSize(2);
+			 	 shape=generator.nextInt(3)+1;
+				 rocks[rocknum].setShape(shape);
+				 rocks[rocknum].createPolygon();
+				 if(k==0)
+					 rocks[rocknum].setCenter((int)rocks[i].x-2, (int)rocks[i].y-2);
+				 else
+					 rocks[rocknum].setCenter((int)rocks[i].x+2, (int)rocks[i].y+2);
+				 rocks[rocknum].setSpeed(.13f);
+				 angle=(float) (generator.nextFloat()*2*Math.PI);
+				 rocks[rocknum].setVelocityX(-(float) (Math.sin(angle)*rocks[rocknum].speed));
+				 rocks[rocknum].setVelocityY(-(float) (Math.cos(angle)*rocks[rocknum].speed));
+				 rocknum++;
+				 }
+				 rocksleft++;
+				 rocks[i]=null;
+				 new Thread() {
+			            public void run() {
+			            	explosionStream = new ByteArrayInputStream(explosionSound.getSamples());
+			            	explosionSound.play(explosionStream);
+			            }
+			        }.start();
+			 }
+			 if(rocks[i]!=null && aliens[i]!=null &&rocks[i].rock.intersects(aliens[j].x-15, aliens[j].y-12, 30, 24) && rocks[i].size==2){
+				 for(int k=0;k<2;k++){
+			 	 rocks[rocknum] = new Rock();
+			 	 System.out.println(rocknum);
+			 	 rocks[rocknum].setSize(1);
+			 	 shape=generator.nextInt(3)+1;
+				 rocks[rocknum].setShape(shape);
+				 rocks[rocknum].createPolygon();
+				 if(k==0)
+					 rocks[rocknum].setCenter((int)rocks[i].x-1, (int)rocks[i].y-1);
+				 else
+					 rocks[rocknum].setCenter((int)rocks[i].x+1, (int)rocks[i].y+1);
+				 rocks[rocknum].setSpeed(.2f);
+				 angle=(float) (generator.nextFloat()*2*Math.PI);
+				 rocks[rocknum].setVelocityX(-(float) (Math.sin(angle)*rocks[rocknum].speed));
+				 rocks[rocknum].setVelocityY(-(float) (Math.cos(angle)*rocks[rocknum].speed));
+				 rocknum++;
+				 }	
+				 rocksleft++;
+				 rocks[i]=null;
+				 new Thread() {
+			            public void run() {
+			            	explosionStream = new ByteArrayInputStream(explosionSound.getSamples());
+			            	explosionSound.play(explosionStream);
+			            }
+			        }.start();
+			 }
+			 if(rocks[i]!=null && aliens[i]!=null && rocks[i].rock.intersects(aliens[j].x-15, aliens[j].y-12, 30, 24) && rocks[i].size==1){
+				 rocks[i]=null;
+				 rocksleft--;
+				 new Thread() {
+			            public void run() {
+			            	explosionStream = new ByteArrayInputStream(explosionSound.getSamples());
+			            	explosionSound.play(explosionStream);
+			            }
+			        }.start();
+			 }
+			 }
+		 }
+		 //bullets collision 
+		 for(int i=0;i<bulletnum;i++){
+			 //with rocks
+			 for(int j=0;j<rocknum;j++){
+				 if(rocks[j]!=null && bullets[i]!=null &&rocks[j].rock.contains(bullets[i].x, bullets[i].y) && rocks[j].size==3){
+					 for(int k=0;k<2;k++){
+					 	 rocks[rocknum] = new Rock();
+					 	 rocks[rocknum].setSize(2);
+					 	 shape=generator.nextInt(3)+1;
+						 rocks[rocknum].setShape(shape);
+						 rocks[rocknum].createPolygon();
+						 if(k==0)
+							 rocks[rocknum].setCenter((int)rocks[j].x-2, (int)rocks[j].y-2);
+						 else
+							 rocks[rocknum].setCenter((int)rocks[j].x+2, (int)rocks[j].y+2);
+						 rocks[rocknum].setSpeed(.13f);
+						 angle=(float) (generator.nextFloat()*2*Math.PI);
+						 rocks[rocknum].setVelocityX(-(float) (Math.sin(angle)*rocks[rocknum].speed));
+						 rocks[rocknum].setVelocityY(-(float) (Math.cos(angle)*rocks[rocknum].speed));
+						 rocknum++;
+						 }
+					 rocksleft++;
+					 rocks[j]=null;
+					 if(bullets[i].owner==0)
+						 calcScore(0);
+					 else if(bullets[i].owner==2)
+						 calcScore(2);
+					 bullets[i]=null;
+					 new Thread() {
+				            public void run() {
+				            	explosionStream = new ByteArrayInputStream(explosionSound.getSamples());
+				            	explosionSound.play(explosionStream);
+				            }
+				        }.start();
+					 
+				 }
+				 if(rocks[j]!=null && bullets[i]!=null &&rocks[j].rock.contains(bullets[i].x, bullets[i].y) && rocks[j].size==2){
+					 for(int k=0;k<2;k++){
+				 	 rocks[rocknum] = new Rock();
+				 	 System.out.println(rocknum);
+				 	 rocks[rocknum].setSize(1);
+				 	 shape=generator.nextInt(3)+1;
+					 rocks[rocknum].setShape(shape);
+					 rocks[rocknum].createPolygon();
+					 if(k==0)
+						 rocks[rocknum].setCenter((int)rocks[j].x-1, (int)rocks[j].y-1);
+					 else
+						 rocks[rocknum].setCenter((int)rocks[j].x+1, (int)rocks[j].y+1);
+					 rocks[rocknum].setSpeed(.2f);
+					 angle=(float) (generator.nextFloat()*2*Math.PI);
+					 rocks[rocknum].setVelocityX(-(float) (Math.sin(angle)*rocks[rocknum].speed));
+					 rocks[rocknum].setVelocityY(-(float) (Math.cos(angle)*rocks[rocknum].speed));
+					 rocknum++;
+					 }	
+					 rocksleft++;
+					 rocks[j]=null;
+					 if(bullets[i].owner==0)
+						 calcScore(0);
+					 else if(bullets[i].owner==2)
+						 calcScore(4);
+					 bullets[i]=null;	
+					 new Thread() {
+				            public void run() {
+				            	explosionStream = new ByteArrayInputStream(explosionSound.getSamples());
+				            	explosionSound.play(explosionStream);
+				            }
+				        }.start();
+				 }
+				 if(rocks[j]!=null && bullets[i]!=null &&rocks[j].rock.contains(bullets[i].x, bullets[i].y) && rocks[j].size==1){
+					 if(bullets[i].owner==0)
+						 calcScore(0);
+					 else if(bullets[i].owner==2)
+						 calcScore(4);
+					 rocksleft--;
+					 rocks[j]=null;		
+					 new Thread() {
+				            public void run() {
+				            	explosionStream = new ByteArrayInputStream(explosionSound.getSamples());
+				            	explosionSound.play(explosionStream);
+				            }
+				        }.start();
+				 }
+			 }
+			 //bullets with alien ships
+			 for(int j=0;j<aliennum;j++){
+				 if(aliens[j]!=null && bullets[i]!=null &&aliens[j].boundbox.contains(bullets[i].x, bullets[i].y) && (bullets[i].owner==0||bullets[i].owner==2)){
+					 if(aliens[j].getHit())
+						 aliens[j]=null;
+					 if(bullets[i].owner==0)
+					 	calcScore(1);
+					 else
+						 calcScore(5);
+					 bullets[i]=null;
+					 new Thread() {
+				            public void run() {
+				            	explosionStream = new ByteArrayInputStream(explosionSound.getSamples());
+				            	explosionSound.play(explosionStream);
+				            }
+				        }.start();
+				 }
+			 }
+			 for(int j=0;j<roguenum;j++){
+				 if(rogues[j]!=null && bullets[i]!=null &&rogues[j].boundbox.contains(bullets[i].x, bullets[i].y) && (bullets[i].owner==0||bullets[i].owner==2)){
+					 if(rogues[j].getHit())
+						 rogues[j]=null;
+					 if(bullets[i].owner==0)
+					 	calcScore(1);
+					 else
+						 calcScore(5);
+					 bullets[i]=null;
+					 new Thread() {
+				            public void run() {
+				            	explosionStream = new ByteArrayInputStream(explosionSound.getSamples());
+				            	explosionSound.play(explosionStream);
+				            }
+				        }.start();
+				 }
+			 }
+		 }
+	 }
+	 private void fire(int owner){
+		 Bullet bullet = new Bullet();
+		 bullet.setOwner(owner);
+		 bullet.setX(playership.p2x);
+		 bullet.setY(playership.p2y);
+		 bullet.setAngle(playership.getAngle());
+		 bullet.setVelocityX(-(float) Math.sin(bullet.angle)*bullet.SPEED);
+		 bullet.setVelocityY(-(float) Math.cos(bullet.angle)*bullet.SPEED);
+		 bullets[bulletnum++]=bullet;	
+		 LastBulletTime=System.currentTimeMillis();
+		 new Thread() {
+	            public void run() {
+	            	bulletStream = new ByteArrayInputStream(bulletSound.getSamples());
+	                bulletSound.play(bulletStream);
+	            }
+	        }.start();
+	 }
+	 private void fire2(int owner){
+		 Bullet bullet = new Bullet();
+		 bullet.setOwner(owner);
+		 bullet.setX(playership2.p2x);
+		 bullet.setY(playership2.p2y);
+		 bullet.setAngle(playership2.getAngle());
+		 bullet.setVelocityX(-(float) Math.sin(bullet.angle)*bullet.SPEED);
+		 bullet.setVelocityY(-(float) Math.cos(bullet.angle)*bullet.SPEED);
+		 bullets[bulletnum++]=bullet;	
+		 LastBulletTime2=System.currentTimeMillis();
+		 new Thread() {
+	            public void run() {
+	            	bulletStream = new ByteArrayInputStream(bulletSound.getSamples());
+	                bulletSound.play(bulletStream);
+	            }
+	        }.start();
+	 }
+	 private void calcScore(int type){
+		 //type
+		 //0=asteroid, 1=alien ship, 2=player ship, 3=new level ,4-7=player 2
+		 if(type==0)
+			 score+=5;
+		 else if(type==1)
+			 score+=100;
+		 else if(type==2)
+			 score+=100;
+		 else if(type==3)
+			 score+=100;
+		 else if(type==4)
+			 score2+=5;
+		 else if(type==5)
+			 score2+=100;
+		 else if(type==6)
+			 score2+=100;
+		 else if(type==7)
+			 score2+=100;
+	 }
+	 private void createAlienShips(){
+		 Alienship alien = new Alienship();
+		 alien.setCenter(50, 300);
+		 aliens[aliennum++]=alien;		 
+	 }
+	 private void createRogueShips(){
+		 Rogueship rogue = new Rogueship();
+		 rogue.setCenter(50, 100);
+		 rogues[roguenum++]=rogue;		 
+	 }
+	 private void enemyFire(){
+		 Random generator = new Random();
+		 float ranAngle;
+		 for(int i=0;i<aliennum;i++){
+			 if(aliens[i]!=null){
+				 if(aliens[i].nowTime-aliens[i].lastFireTime>1000){
+					 Bullet bullet = new Bullet();
+					 bullet.setOwner(1);
+					 bullet.setX(aliens[i].x);
+					 bullet.setY(aliens[i].y-14);
+					 if(playership.y>aliens[i].y)
+							 bullet.setAngle((float) (Math.atan((playership.x-aliens[i].x)/(playership.y-aliens[i].y))+Math.PI));
+					 else
+							 bullet.setAngle((float) (Math.atan((playership.x-aliens[i].x)/(playership.y-aliens[i].y))));
+					 bullet.setVelocityX(-(float) Math.sin(bullet.angle)*bullet.SPEED);
+					 bullet.setVelocityY(-(float) Math.cos(bullet.angle)*bullet.SPEED);
+					 bullets[bulletnum++]=bullet;
+					 aliens[i].lastFireTime=aliens[i].nowTime;
+				 }
+			 }
+		 }		 
+		 for(int i=0;i<roguenum;i++){
+			 if(rogues[i]!=null){
+				 if(rogues[i].nowTime-rogues[i].lastFireTime>1000){
+					 Bullet bullet = new Bullet();
+					 bullet.setOwner(1);
+					 bullet.setX(rogues[i].x);
+					 bullet.setY(rogues[i].y-12);
+					 ranAngle = (float) (generator.nextFloat()*Math.PI);
+					 bullet.setAngle(ranAngle);
+					 bullet.setVelocityX(-(float) Math.sin(bullet.angle)*bullet.SPEED);
+					 bullet.setVelocityY(-(float) Math.cos(bullet.angle)*bullet.SPEED);
+					 bullets[bulletnum++]=bullet;
+					 rogues[i].lastFireTime=rogues[i].nowTime;
+				 }
+			 }
+		 }
+	 }
+	 private void enemySpawn(long elapsedTime){
+		 if(!paused){
+		 enemySpawnStackTime += elapsedTime;
+		 if(enemySpawnFlag==0){
+			 enemySpawnControlTime = enemySpawnRan.nextInt(4000)+13000;
+		 }
+		 if(enemySpawnStackTime>enemySpawnControlTime){
+			 enemySpawnStackTime=0;
+			 if(enemySpawnRan.nextInt(2)==1){
+				 createAlienShips();
+			 }
+			 else
+				 createRogueShips();
+		 }
+		 }
+	 }
+	 private void flysound(long elapsedTime){
+		 nowFlyTime+=elapsedTime;
+		 if(nowFlyTime-lastFlyTime>400){
+			 lastFlyTime=nowFlyTime;
+			 new Thread() {
+	            public void run() {
+	            	flyStream = new ByteArrayInputStream(flySound.getSamples());
+	                flySound.play(flyStream);
+	            }
+	        }.start();
+		 }
+	 }
+	 private void delectLevelUp(Graphics2D g){
+		 levelpreTime=System.currentTimeMillis();
+		 if(level==1){
+			 if(rocksleft==0){
+				 uplevel(2);
+				 setPaused(!isPaused());
+				 levelTransision=1;			 			 
+			 }
+		 }
+	 }
+	 public JButton createButton(String name, String toolTip) {
+
+	        // load the image
+	        String imagePath = "../images/menu/" + name + ".png";
+	        ImageIcon iconRollover = new ImageIcon(imagePath);
+	        int w = iconRollover.getIconWidth();
+	        int h = iconRollover.getIconHeight();
+
+	        // get the cursor for this button
+	        Cursor cursor =
+	            Cursor.getPredefinedCursor(Cursor.HAND_CURSOR);
+
+	        // make translucent default image
+	        Image image = screen.createCompatibleImage(w, h,
+	            Transparency.TRANSLUCENT);
+	        Graphics2D g = (Graphics2D)image.getGraphics();
+	        Composite alpha = AlphaComposite.getInstance(
+	            AlphaComposite.SRC_OVER, .5f);
+	        g.setComposite(alpha);
+	        g.drawImage(iconRollover.getImage(), 0, 0, null);
+	        g.dispose();
+	        ImageIcon iconDefault = new ImageIcon(image);
+
+	        // make a pressed iamge
+	        image = screen.createCompatibleImage(w, h,
+	            Transparency.TRANSLUCENT);
+	        g = (Graphics2D)image.getGraphics();
+	        g.drawImage(iconRollover.getImage(), 2, 2, null);
+	        g.dispose();
+	        ImageIcon iconPressed = new ImageIcon(image);
+
+	        // create the button
+	        JButton button = new JButton();
+	        button.addActionListener(this);
+	        button.setIgnoreRepaint(true);
+	        button.setFocusable(false);
+	        button.setToolTipText(toolTip);
+	        button.setBorder(null);
+	        button.setContentAreaFilled(false);
+	        button.setCursor(cursor);
+	        button.setIcon(iconDefault);
+	        button.setRolloverIcon(iconRollover);
+	        button.setPressedIcon(iconPressed);
+	        return button;
+	    }
+	@Override
+	public void actionPerformed(ActionEvent e) {
+		Object src = e.getSource();
+		if (src == playButton) {
+            // fire the "pause" gameAction
+            pause.tap();
+        }
+	}
+}

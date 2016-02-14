@@ -1,0 +1,28 @@
+package game;
+import java.awt.*;
+public class Asteroid {
+
+	public static void main(String[] args) {
+		// TODO Auto-generated method stub
+		new Asteroid.run();
+	}
+	private static final DisplayMode POSSIBLE_MODES[] = {
+        new DisplayMode(800, 600, 32, 0),
+        new DisplayMode(800, 600, 24, 0),
+        new DisplayMode(800, 600, 16, 0)
+    };
+	private boolean running;
+	protected ScreenManager screen;
+	public void stop(){
+		running = false;
+	}
+	public void run() {
+        try {
+            init();
+            gameLoop();
+        }
+        finally {
+            screen.restoreScreen();
+        }
+    }
+}

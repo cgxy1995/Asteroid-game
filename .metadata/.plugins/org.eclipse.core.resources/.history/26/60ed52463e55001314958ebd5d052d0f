@@ -1,0 +1,18 @@
+package game;
+
+public class PlayerShip extends Ship {
+	private Animation anim;
+	private float x;
+	private float y;
+	private float dx;
+    private float dy;
+    public static final float SPEED = .3f;
+    public static final float GRAVITY = .002f;
+	public PlayerShip(Animation anim) {
+		super(anim);
+		x=300;
+		y=200;
+		// TODO Auto-generated constructor stub
+	}
+
+}
